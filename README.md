@@ -55,6 +55,7 @@ adb shell am start -n com.example.ommstall/.MainActivity --ez swap false
 adb shell am start -n com.example.ommstall/.MainActivity --ez shared_loader false
 adb shell am start -n com.example.ommstall/.MainActivity --ez pause_before_remove true
 adb shell am start -n com.example.ommstall/.MainActivity --ez stop_loading_before_remove true
+adb shell am start -n com.example.ommstall/.MainActivity --ez big_pool true
 adb shell am start -n com.example.ommstall/.MainActivity --ei slow_ms 400
 ```
 
@@ -68,12 +69,17 @@ the untouched layer per 3 s once the run settles:
 | `--ez shared_loader false` | 147–155 | one `DataLoader` per layer works around it |
 | `--ez pause_before_remove true` | 0–2 | `pause()` before `removeLayer` does not help |
 | `--ez stop_loading_before_remove true` | 0–6 | `setTileLoadingPaused(true)` does not help either |
+| `--ez big_pool true` | 137–154 | raising OkHttp's per-host limit to 64 also works around it |
 
-The workaround column is what points at the mechanism: both layers share one
-`DataLoader`, and OkHttp allows 5 concurrent requests per host by default, so
-loads belonging to dead layers hold every slot for their full 800 ms. In an app
-whose layers are served from different hosts the effect hides — only the layer
-sharing a host with the orphaned loads goes quiet.
+The last two rows settle the mechanism. Both layers share one `DataLoader`, and
+OkHttp allows five concurrent requests per host by default; every tile here is on
+127.0.0.1. Loads belonging to removed layers hold those five slots for their full
+800 ms, so the live layer never gets one. Raising the limit to 64 restores it
+completely — the orphaned loads still happen, they just no longer block anyone.
+
+This also explains why the symptom looks selective in a real app: only layers
+sharing a host with the orphaned loads go quiet, while layers on other hosts keep
+loading normally.
 
 ## How we ran into it
 

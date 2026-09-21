@@ -91,17 +91,21 @@ Tiles fetched by the untouched layer per 3 s window, once the run settles:
 | `--ez shared_loader false` (a `DataLoader` per layer) | 147–155 | fine |
 | `--ez pause_before_remove true` (`pause()` then `removeLayer`) | 0–2 | does not help |
 | `--ez stop_loading_before_remove true` (`setTileLoadingPaused(true)` then `removeLayer`) | 0–6 | does not help |
+| `--ez big_pool true` (OkHttp `maxRequestsPerHost = 64`) | 137–154 | fine |
 
 Two things follow. Neither `LayerInterface.pause()` nor
 `Tiled2dMapRasterLayerInterface.setTileLoadingPaused(true)` before removal stops
 the loads, so we could not find an app-side way to tear the layer down first.
 And the damage travels
-through the shared loader: with a loader per layer the untouched layer is
-unaffected even though the orphaned loads still happen. That is consistent with
-OkHttp's default of 5 concurrent requests per host — the orphaned loads hold
-every slot for their full duration. It also explains why the symptom can look
-selective in a real app: only layers sharing a host with the orphaned loads go
-quiet, while layers on other hosts keep loading normally.
+through the shared loader, by way of OkHttp's default of five concurrent requests
+per host: the orphaned loads hold those five slots for their full 800 ms. Either
+giving each layer its own `DataLoader` or raising the per-host limit to 64
+restores the untouched layer fully, while the orphaned loads carry on in both
+cases — they simply stop blocking anyone.
+
+That also explains why the symptom looks selective in a real app: only layers
+sharing a host with the orphaned loads go quiet, while layers on other hosts keep
+loading normally.
 
 ## Questions
 

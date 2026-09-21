@@ -58,6 +58,9 @@ class MainActivity : ComponentActivity() {
     /** Call pause() on the old layer before removing it, to see whether that stops its loads. */
     private val pauseBeforeRemove: Boolean get() = intent.getBooleanExtra("pause_before_remove", false)
 
+    /** Raise OkHttp's per-host concurrency, to test what the orphaned loads are holding. */
+    private val bigPool: Boolean get() = intent.getBooleanExtra("big_pool", false)
+
     /** Call setTileLoadingPaused(true) on the old layer before removing it. */
     private val stopLoadingBeforeRemove: Boolean
         get() = intent.getBooleanExtra("stop_loading_before_remove", false)
@@ -106,7 +109,33 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun newLoaders(): ArrayList<LoaderInterface> =
-        arrayListOf(DataLoader(this, cacheDir, CACHE_BYTES, "", USER_AGENT))
+        arrayListOf(
+            if (bigPool) {
+                WideDataLoader(this, cacheDir, CACHE_BYTES, "", USER_AGENT)
+            } else {
+                DataLoader(this, cacheDir, CACHE_BYTES, "", USER_AGENT)
+            },
+        )
+
+    /**
+     * A loader that lets more than five requests run against one host.
+     *
+     * OkHttp's default is five per host, and every tile here is on 127.0.0.1.
+     * If raising it makes the starvation go away, the orphaned loads were
+     * holding those five slots.
+     */
+    private class WideDataLoader(
+        context: android.content.Context,
+        cacheDirectory: java.io.File,
+        cacheSize: Long,
+        referer: String,
+        userAgent: String,
+    ) : DataLoader(context, cacheDirectory, cacheSize, referer, userAgent) {
+        init {
+            okHttpClient.dispatcher.maxRequests = 64
+            okHttpClient.dispatcher.maxRequestsPerHost = 64
+        }
+    }
 
     /**
      * Swaps the overlay for a freshly created layer, which is what an app does
