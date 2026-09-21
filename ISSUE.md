@@ -20,11 +20,15 @@ the camera.
 
 ## Reproduction
 
-A minimal app is attached: two source files, ~250 lines, `mapscore` as its only
+Repro project: https://github.com/wf9a5m75/maps-core-layer-removal-repro
+
+Two source files, ~250 lines, `mapscore` as its only
 map dependency. No network and no API key — tiles are served by an HTTP server
 inside the app, which also counts what arrives.
 
 ```bash
+git clone https://github.com/wf9a5m75/maps-core-layer-removal-repro
+cd maps-core-layer-removal-repro
 ./gradlew :app:installDebug
 adb shell am start -n com.example.ommstall/.MainActivity
 adb logcat -s OmmStall
@@ -107,7 +111,10 @@ That also explains why the symptom looks selective in a real app: only layers
 sharing a host with the orphaned loads go quiet, while layers on other hosts keep
 loading normally.
 
-## Questions
+## Questions, whenever it suits you
+
+We have a workaround in place and nothing is blocked, so this is filed for the
+record rather than as a request — but two things would be good to know:
 
 1. Should `removeLayer()` (or `LayerInterface.onRemoved()`) cancel the layer's
    pending tile loads, including calling `LoaderInterface.cancel()` for requests
@@ -115,7 +122,8 @@ loading normally.
 2. If an app is instead expected to tear a tiled layer down itself before
    removing it, which call is that? Neither `pause()` nor
    `setTileLoadingPaused(true)` did it, and we found nothing else in the public
-   interface.
+   interface. If there is one, documenting it on `removeLayer` would probably be
+   enough.
 
 ## Where we hit it
 
